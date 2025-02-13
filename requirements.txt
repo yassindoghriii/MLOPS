@@ -12,4 +12,3 @@ keras
 flask
 gunicorn
 flask-sqlalchemy
-psycopg2
