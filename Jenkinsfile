@@ -36,19 +36,19 @@ pipeline {
 
         stage('Prétraitement des données') {
             steps {
-                sh 'python preprocessing.py'
+                sh 'python3 preprocessing.py'
             }
         }
 
         stage('Entraînement du modèle') {
             steps {
-                sh 'python train.py'
+                sh 'python3 train.py'
             }
         }
 
         stage('Évaluation du modèle') {
             steps {
-                sh 'python evaluate.py'
+                sh 'python3 evaluate.py'
             }
         }
 
