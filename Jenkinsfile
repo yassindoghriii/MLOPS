@@ -29,6 +29,7 @@ pipeline {
 
         stage('Installer les dépendances') {
             steps {
+                sh 'sudo apt update && sudo apt install -y libpq-dev'
                 sh 'python3 -m pip install --upgrade pip'
                 sh 'python3 -m pip install --no-cache-dir -r requirements.txt || exit 1'
             }
