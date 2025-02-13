@@ -2,136 +2,84 @@ pipeline {
     agent any
 
     environment {
-        DATA_PATH = ""  // Les fichiers de données sont à la racine
+        DATA_PATH = ""  // Les fichiers sont à la racine
         MODEL_PATH = "models/"
         DOCKER_IMAGE_NAME = "mini-projet-model"
-        DOCKER_REGISTRY = "yassindoghri"
-        VENV_DIR = "venv"
-        PYTHON_VERSION = "3.10"  // Assure la compatibilité avec TensorFlow
+        DOCKER_REGISTRY = "yassindoghri"  
     }
 
     stages {
-        stage('Clone Repository') {
+        stage('Cloner le code') {
             steps {
                 git branch: 'main', url: 'https://github.com/yassindoghriii/MLOPS.git'
             }
         }
 
-        stage('Setup Python & Virtual Environment') {
-            steps {
-                script {
-                    // Ajout de Python 3.10 et PostgreSQL à PATH
-                    env.PATH = "/opt/homebrew/bin:/opt/homebrew/opt/python@${PYTHON_VERSION}/bin:${env.PATH}"
-                }
-
-                sh '''
-                    # Vérifier la version de Python
-                    python3 --version
-
-                    # Créer un environnement virtuel
-                    python3 -m venv ${VENV_DIR}
-
-                    # Activer l'environnement et mettre à jour pip
-                    source ${VENV_DIR}/bin/activate
-                    python3 -m pip install --upgrade pip
-                '''
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                    source ${VENV_DIR}/bin/activate
-
-                    # Installer TensorFlow en fonction de l'architecture du Mac
-                    if [[ "$(uname -m)" == "arm64" ]]; then
-                        python3 -m pip install tensorflow-macos==2.11.0 tensorflow-metal==0.8.0
-                    else
-                        python3 -m pip install tensorflow==2.11.0
-                    fi
-
-                    # Installer les autres dépendances
-                    python3 -m pip install --no-cache-dir -r requirements.txt
-                '''
-            }
-        }
-
-        stage('Check Environment & Dependencies') {
-            steps {
-                sh '''
-                    source ${VENV_DIR}/bin/activate
-                    python3 --version
-                    which python3
-                    pip list
-                    which pg_config || echo "⚠️ pg_config not found!"
-                    pg_config --version || echo "⚠️ pg_config cannot run!"
-                    python3 -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)"
-                '''
-            }
-        }
-
-        stage('Check Data Files') {
+        stage('Vérifier les fichiers de données') {
             steps {
                 script {
                     if (fileExists('train.csv') && fileExists('test.csv')) {
-                        echo "✔️ Data files exist."
+                        echo "✔️ Les fichiers de données existent."
                     } else {
-                        error "❌ Missing train.csv and/or test.csv."
+                        error "❌ Les fichiers train.csv et test.csv sont manquants."
                     }
                 }
             }
         }
 
-        stage('Preprocess Data') {
+        stage('Installer les dépendances') {
             steps {
-                sh 'source ${VENV_DIR}/bin/activate && python3 preprocessing.py'
+                sh 'python3 -m pip install --upgrade pip'
+                sh 'python3 -m pip install --no-cache-dir -r requirements.txt || exit 1'
             }
         }
 
-        stage('Train Model') {
+        stage('Prétraitement des données') {
             steps {
-                sh 'source ${VENV_DIR}/bin/activate && python3 train.py'
+                sh 'python preprocessing.py'
             }
         }
 
-        stage('Evaluate Model') {
+        stage('Entraînement du modèle') {
             steps {
-                sh 'source ${VENV_DIR}/bin/activate && python3 evaluate.py'
+                sh 'python train.py'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Évaluation du modèle') {
             steps {
-                sh '''
-                    docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest .
-                '''
+                sh 'python evaluate.py'
             }
         }
 
-        stage('Push Docker Image to Docker Hub') {
+        stage('Construire l\'image Docker avec l\'API Flask') {
+            steps {
+                sh 'docker build -t %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest .'
+            }
+        }
+
+        stage('Push l\'image Docker vers Docker Hub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'yassin', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh '''
-                        docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
-                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest
-                    '''
+                    sh "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
+                    sh "docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest"
                 }
             }
         }
 
-        stage('Store Model Artifacts') {
+        stage('Stockage des artefacts') {
             steps {
                 archiveArtifacts artifacts: 'rf_model.pkl, dt_model.pkl, ann_model.pkl', fingerprint: true
             }
         }
 
-        stage('Deploy with Docker Compose') {
+        stage('Construire et Déployer avec Docker Compose') {
             steps {
                 sh 'docker-compose up --build -d'
             }
         }
 
-        stage('Check Running Containers') {
+        stage('Vérifier les Conteneurs') {
             steps {
                 sh 'docker ps'
             }
@@ -140,10 +88,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Pipeline completed successfully! ✅"
+            echo "🎉 Pipeline terminé avec succès ! ✅"
         }
         failure {
-            echo "🚨 Pipeline failed! Check Jenkins logs."
+            echo "🚨 Le pipeline a échoué ! Vérifie les logs Jenkins."
         }
     }
 }
