@@ -7,6 +7,7 @@ pipeline {
         DOCKER_IMAGE_NAME = "mini-projet-model"
         DOCKER_REGISTRY = "yassindoghri"
         VENV_DIR = "venv"
+        PYTHON_VERSION = "3.10"  // Assure la compatibilité avec TensorFlow
     }
 
     stages {
@@ -16,20 +17,39 @@ pipeline {
             }
         }
 
-        stage('Setup Environment & Dependencies') {
+        stage('Setup Python & Virtual Environment') {
             steps {
                 script {
-                    // Ensure PostgreSQL's pg_config is in PATH
-                    env.PATH = "/opt/homebrew/bin:${env.PATH}"
+                    // Add PostgreSQL and Python to PATH
+                    env.PATH = "/opt/homebrew/bin:/opt/homebrew/opt/python@${PYTHON_VERSION}/bin:${env.PATH}"
                 }
-                
+
                 sh '''
+                    # Ensure correct Python version
+                    python3 --version
+
                     # Create virtual environment
                     python3 -m venv ${VENV_DIR}
-                    
-                    # Activate environment and install dependencies
+
+                    # Activate environment and upgrade pip
                     source ${VENV_DIR}/bin/activate
                     python3 -m pip install --upgrade pip
+                '''
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                    source ${VENV_DIR}/bin/activate
+                    
+                    # Install TensorFlow based on Mac architecture
+                    if [[ "$(uname -m)" == "arm64" ]]; then
+                        python3 -m pip install tensorflow-macos tensorflow-metal
+                    else
+                        python3 -m pip install tensorflow
+                    fi
+
                     python3 -m pip install --no-cache-dir -r requirements.txt
                 '''
             }
@@ -44,6 +64,7 @@ pipeline {
                     pip list
                     which pg_config || echo "⚠️ pg_config not found!"
                     pg_config --version || echo "⚠️ pg_config cannot run!"
+                    python3 -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)"
                 '''
             }
         }
