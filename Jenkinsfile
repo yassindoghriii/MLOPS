@@ -26,6 +26,15 @@ pipeline {
                 }
             }
         }
+        stage('Configurer l\'environnement') {
+    steps {
+        script {
+            env.PATH = "/opt/homebrew/bin:${env.PATH}"
+            sh 'echo "✅ PATH mis à jour: $PATH"'
+        }
+    }
+}
+
         stage('Vérification environnement') {
     steps {
         sh 'which python3'
