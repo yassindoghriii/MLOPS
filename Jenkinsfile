@@ -5,13 +5,13 @@ pipeline {
         DATA_PATH = ""  // Les fichiers sont à la racine
         MODEL_PATH = "models/"
         DOCKER_IMAGE_NAME = "mini-projet-model"
-        DOCKER_REGISTRY = "wassim33"  
+        DOCKER_REGISTRY = "yassindoghri"  
     }
 
     stages {
         stage('Cloner le code') {
             steps {
-                git branch: 'main', url: 'https://github.com/ouassim16wass/finial.git'
+                git branch: 'main', url: 'https://github.com/yassindoghriii/MLOPS.git'
             }
         }
 
@@ -29,40 +29,40 @@ pipeline {
 
         stage('Installer les dépendances') {
             steps {
-                bat 'python -m pip install --upgrade pip'
-                bat 'python -m pip install --no-cache-dir -r requirements.txt || exit 1'
+                sh 'python -m pip install --upgrade pip'
+                sh 'python -m pip install --no-cache-dir -r requirements.txt || exit 1'
             }
         }
 
         stage('Prétraitement des données') {
             steps {
-                bat 'python preprocessing.py'
+                sh 'python preprocessing.py'
             }
         }
 
         stage('Entraînement du modèle') {
             steps {
-                bat 'python train.py'
+                sh 'python train.py'
             }
         }
 
         stage('Évaluation du modèle') {
             steps {
-                bat 'python evaluate.py'
+                sh 'python evaluate.py'
             }
         }
 
         stage('Construire l\'image Docker avec l\'API Flask') {
             steps {
-                bat 'docker build -t %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest .'
+                sh 'docker build -t %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest .'
             }
         }
 
         stage('Push l\'image Docker vers Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    bat "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
-                    bat "docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest"
+                withCredentials([usernamePassword(credentialsId: 'yassin', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
+                    sh "docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest"
                 }
             }
         }
@@ -75,13 +75,13 @@ pipeline {
 
         stage('Construire et Déployer avec Docker Compose') {
             steps {
-                bat 'docker-compose up --build -d'
+                sh 'docker-compose up --build -d'
             }
         }
 
         stage('Vérifier les Conteneurs') {
             steps {
-                bat 'docker ps'
+                sh 'docker ps'
             }
         }
     }
