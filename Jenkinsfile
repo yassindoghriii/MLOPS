@@ -15,6 +15,18 @@ pipeline {
             }
         }
 
+        stage('Vérifier pg_config (PostgreSQL)') {
+            steps {
+                script {
+                    def pg_config_exists = sh(script: "which pg_config", returnStatus: true) == 0
+                    if (!pg_config_exists) {
+                        echo "⚠️ pg_config introuvable. Installation de PostgreSQL via Homebrew..."
+                        sh 'brew install postgresql'
+                    }
+                }
+            }
+        }
+
         stage('Vérifier les fichiers de données') {
             steps {
                 script {
@@ -29,8 +41,8 @@ pipeline {
 
         stage('Installer les dépendances') {
             steps {
-                sh 'sudo apt update && sudo apt install -y libpq-dev'
                 sh 'python3 -m pip install --upgrade pip'
+                sh "sed -i '' 's/psycopg2/psycopg2-binary/g' requirements.txt" // Remplacement automatique
                 sh 'python3 -m pip install --no-cache-dir -r requirements.txt || exit 1'
             }
         }
@@ -55,15 +67,15 @@ pipeline {
 
         stage('Construire l\'image Docker avec l\'API Flask') {
             steps {
-                sh 'docker build -t %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest .'
+                sh 'docker build -t $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:latest .'
             }
         }
 
         stage('Push l\'image Docker vers Docker Hub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'yassin', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
-                    sh "docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest"
+                    sh "docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD"
+                    sh "docker push $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:latest"
                 }
             }
         }
