@@ -2,113 +2,114 @@ pipeline {
     agent any
 
     environment {
-        DATA_PATH = ""  // Les fichiers sont à la racine
+        DATA_PATH = ""  // Data files are in the root directory
         MODEL_PATH = "models/"
         DOCKER_IMAGE_NAME = "mini-projet-model"
-        DOCKER_REGISTRY = "yassindoghri"  
+        DOCKER_REGISTRY = "yassindoghri"
+        VENV_DIR = "venv"
     }
 
     stages {
-        stage('Cloner le code') {
+        stage('Clone Repository') {
             steps {
                 git branch: 'main', url: 'https://github.com/yassindoghriii/MLOPS.git'
             }
         }
 
-        stage('Vérifier les fichiers de données') {
+        stage('Setup Environment & Dependencies') {
+            steps {
+                script {
+                    // Ensure PostgreSQL's pg_config is in PATH
+                    env.PATH = "/opt/homebrew/bin:${env.PATH}"
+                }
+                
+                sh '''
+                    # Create virtual environment
+                    python3 -m venv ${VENV_DIR}
+                    
+                    # Activate environment and install dependencies
+                    source ${VENV_DIR}/bin/activate
+                    python3 -m pip install --upgrade pip
+                    python3 -m pip install --no-cache-dir -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Check Environment & Dependencies') {
+            steps {
+                sh '''
+                    source ${VENV_DIR}/bin/activate
+                    python3 --version
+                    which python3
+                    pip list
+                    which pg_config || echo "⚠️ pg_config not found!"
+                    pg_config --version || echo "⚠️ pg_config cannot run!"
+                '''
+            }
+        }
+
+        stage('Check Data Files') {
             steps {
                 script {
                     if (fileExists('train.csv') && fileExists('test.csv')) {
-                        echo "✔️ Les fichiers de données existent."
+                        echo "✔️ Data files exist."
                     } else {
-                        error "❌ Les fichiers train.csv et test.csv sont manquants."
+                        error "❌ Missing train.csv and/or test.csv."
                     }
                 }
             }
         }
-        stage('Configurer l\'environnement') {
-    steps {
-        script {
-            env.PATH = "/opt/homebrew/bin:${env.PATH}"
-            sh 'echo "✅ PATH mis à jour: $PATH"'
-        }
-    }
-}
 
-        stage('Vérification environnement') {
-    steps {
-        sh 'which python3'
-        sh 'python3 --version'
-        sh 'which pg_config'
-        sh 'pg_config --version'
-    }
-}
-        stage('Créer un environnement virtuel') {
-    steps {
-        sh 'python3 -m venv venv'
-        sh 'source venv/bin/activate'
-    }
-}
-
-
-        stage('Installer les dépendances') {
-    steps {
-        sh '''
-            source venv/bin/activate
-            python3 -m pip install --upgrade pip
-            python3 -m pip install -r requirements.txt
-        '''
-    }
-}
-
-
-
-        stage('Prétraitement des données') {
+        stage('Preprocess Data') {
             steps {
-                sh 'python preprocessing.py'
+                sh 'source ${VENV_DIR}/bin/activate && python3 preprocessing.py'
             }
         }
 
-        stage('Entraînement du modèle') {
+        stage('Train Model') {
             steps {
-                sh 'python train.py'
+                sh 'source ${VENV_DIR}/bin/activate && python3 train.py'
             }
         }
 
-        stage('Évaluation du modèle') {
+        stage('Evaluate Model') {
             steps {
-                sh 'python evaluate.py'
+                sh 'source ${VENV_DIR}/bin/activate && python3 evaluate.py'
             }
         }
 
-        stage('Construire l\'image Docker avec l\'API Flask') {
+        stage('Build Docker Image') {
             steps {
-                sh 'docker build -t %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest .'
+                sh '''
+                    docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest .
+                '''
             }
         }
 
-        stage('Push l\'image Docker vers Docker Hub') {
+        stage('Push Docker Image to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'yassin', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
-                    sh "docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE_NAME%:latest"
+                    sh '''
+                        docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
+                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:latest
+                    '''
                 }
             }
         }
 
-        stage('Stockage des artefacts') {
+        stage('Store Model Artifacts') {
             steps {
                 archiveArtifacts artifacts: 'rf_model.pkl, dt_model.pkl, ann_model.pkl', fingerprint: true
             }
         }
 
-        stage('Construire et Déployer avec Docker Compose') {
+        stage('Deploy with Docker Compose') {
             steps {
                 sh 'docker-compose up --build -d'
             }
         }
 
-        stage('Vérifier les Conteneurs') {
+        stage('Check Running Containers') {
             steps {
                 sh 'docker ps'
             }
@@ -117,10 +118,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Pipeline terminé avec succès ! ✅"
+            echo "🎉 Pipeline completed successfully! ✅"
         }
         failure {
-            echo "🚨 Le pipeline a échoué ! Vérifie les logs Jenkins."
+            echo "🚨 Pipeline failed! Check Jenkins logs."
         }
     }
 }
