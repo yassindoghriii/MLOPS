@@ -26,6 +26,14 @@ pipeline {
                 }
             }
         }
+        stage('Vérification environnement') {
+    steps {
+        sh 'which python3'
+        sh 'python3 --version'
+        sh 'which pg_config'
+        sh 'pg_config --version'
+    }
+}
 
         stage('Installer les dépendances') {
     steps {
