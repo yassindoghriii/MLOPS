@@ -12,8 +12,8 @@ gunicorn
 flask-sqlalchemy
 psycopg2-binary
 
-# TensorFlow dependencies
-tensorflow-macos; platform_system == "Darwin" and platform_machine == "arm64"
-tensorflow; platform_system != "Darwin" or platform_machine != "arm64"
-tensorflow-metal; platform_system == "Darwin" and platform_machine == "arm64"
+# TensorFlow (choix selon l'architecture)
+tensorflow-macos==2.11.0; platform_system == "Darwin" and platform_machine == "arm64"
+tensorflow-metal==0.8.0; platform_system == "Darwin" and platform_machine == "arm64"
+tensorflow==2.11.0; platform_system != "Darwin" or platform_machine != "arm64"
 keras
