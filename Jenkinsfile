@@ -6,24 +6,43 @@ pipeline {
         MODEL_PATH = "models/"
         DOCKER_IMAGE_NAME = "mini-projet-model"
         DOCKER_REGISTRY = "yassindoghri"  
+        HOMEBREW_PATH = "/opt/homebrew/bin:/usr/local/bin"
     }
 
     stages {
-        stage('Cloner le code') {
+        stage('Configurer Homebrew et PostgreSQL') {
             steps {
-                git branch: 'main', url: 'https://github.com/yassindoghriii/MLOPS.git'
+                script {
+                    sh '''
+                    # Vérifier si Homebrew est installé
+                    if ! command -v brew &> /dev/null; then
+                        echo "⚠️ Homebrew introuvable. Installation en cours..."
+                        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+                        eval "$(/opt/homebrew/bin/brew shellenv)"
+                    fi
+
+                    # Ajouter Homebrew au PATH
+                    export PATH="$HOMEBREW_PATH:$PATH"
+
+                    # Vérifier si pg_config (PostgreSQL) est installé
+                    if ! command -v pg_config &> /dev/null; then
+                        echo "⚠️ PostgreSQL introuvable. Installation en cours..."
+                        brew install postgresql
+                    else
+                        echo "✅ PostgreSQL déjà installé."
+                    fi
+
+                    # Vérification finale
+                    echo "🛠️ PostgreSQL installé à : $(which pg_config)"
+                    '''
+                }
             }
         }
 
-        stage('Vérifier pg_config (PostgreSQL)') {
+        stage('Cloner le code') {
             steps {
-                script {
-                    def pg_config_exists = sh(script: "which pg_config", returnStatus: true) == 0
-                    if (!pg_config_exists) {
-                        echo "⚠️ pg_config introuvable. Installation de PostgreSQL via Homebrew..."
-                        sh 'brew install postgresql'
-                    }
-                }
+                git branch: 'main', url: 'https://github.com/yassindoghriii/MLOPS.git'
             }
         }
 
@@ -39,11 +58,14 @@ pipeline {
             }
         }
 
-        stage('Installer les dépendances') {
+        stage('Installer les dépendances Python') {
             steps {
-                sh 'python3 -m pip install --upgrade pip'
-                sh "sed -i '' 's/psycopg2/psycopg2-binary/g' requirements.txt" // Remplacement automatique
-                sh 'python3 -m pip install --no-cache-dir -r requirements.txt || exit 1'
+                sh '''
+                export PATH="$HOMEBREW_PATH:$PATH"
+                python3 -m pip install --upgrade pip
+                sed -i '' 's/psycopg2/psycopg2-binary/g' requirements.txt  # Remplace psycopg2 par psycopg2-binary
+                python3 -m pip install --no-cache-dir -r requirements.txt || exit 1
+                '''
             }
         }
 
