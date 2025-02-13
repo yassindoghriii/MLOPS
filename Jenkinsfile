@@ -28,11 +28,12 @@ pipeline {
         }
 
         stage('Installer les dépendances') {
-            steps {
-                sh 'python -m pip install --upgrade pip'
-                sh 'python -m pip install --no-cache-dir -r requirements.txt || exit 1'
-            }
-        }
+    steps {
+        sh 'python3 -m pip install --upgrade pip'
+        sh 'python3 -m pip install --no-cache-dir -r requirements.txt || exit 1'
+    }
+}
+
 
         stage('Prétraitement des données') {
             steps {
