@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DATA_PATH = ""  // Data files are in the root directory
+        DATA_PATH = ""  // Les fichiers de données sont à la racine
         MODEL_PATH = "models/"
         DOCKER_IMAGE_NAME = "mini-projet-model"
         DOCKER_REGISTRY = "yassindoghri"
@@ -20,18 +20,18 @@ pipeline {
         stage('Setup Python & Virtual Environment') {
             steps {
                 script {
-                    // Add PostgreSQL and Python to PATH
+                    // Ajout de Python 3.10 et PostgreSQL à PATH
                     env.PATH = "/opt/homebrew/bin:/opt/homebrew/opt/python@${PYTHON_VERSION}/bin:${env.PATH}"
                 }
 
                 sh '''
-                    # Ensure correct Python version
+                    # Vérifier la version de Python
                     python3 --version
 
-                    # Create virtual environment
+                    # Créer un environnement virtuel
                     python3 -m venv ${VENV_DIR}
 
-                    # Activate environment and upgrade pip
+                    # Activer l'environnement et mettre à jour pip
                     source ${VENV_DIR}/bin/activate
                     python3 -m pip install --upgrade pip
                 '''
@@ -42,14 +42,15 @@ pipeline {
             steps {
                 sh '''
                     source ${VENV_DIR}/bin/activate
-                    
-                    # Install TensorFlow based on Mac architecture
+
+                    # Installer TensorFlow en fonction de l'architecture du Mac
                     if [[ "$(uname -m)" == "arm64" ]]; then
-                        python3 -m pip install tensorflow-macos tensorflow-metal
+                        python3 -m pip install tensorflow-macos==2.11.0 tensorflow-metal==0.8.0
                     else
-                        python3 -m pip install tensorflow
+                        python3 -m pip install tensorflow==2.11.0
                     fi
 
+                    # Installer les autres dépendances
                     python3 -m pip install --no-cache-dir -r requirements.txt
                 '''
             }
